@@ -3,6 +3,7 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
+#include <PubSubClient.h>
 #include "FS.h"
 
 extern "C" {
@@ -15,12 +16,98 @@ extern "C" {
 #define DOOR_SENSOR_TOP_PIN D1
 #define DOOR_SENSOR_BOTTOM_PIN D4
 
+#define MQTT_IP "192.168.1.9"
+#define MQTT_PORT 1883
+#define MQTT_NAME "garage"
+#define CMD_TOPIC "garage/cmd"
+#define SENSOR_TOPIC "garage/sensors"
+#define QOS_LEVEL 0
+
 unsigned long lastRead = 0;
 
 dht DHT;
-ESP8266WebServer server(80);
 os_timer_t doorChangeTimer;
 os_timer_t doorStateAlertTimer;
+WiFiClient wifi;
+PubSubClient pubSubClient(wifi);
+void PubSubCallback(char* topic, byte* payload, unsigned int length);
+long lastPubSubConnectionAttempt = 0;
+
+void PubSubSetup() {
+  pubSubClient.setServer(MQTT_IP, MQTT_PORT);
+  pubSubClient.setCallback(PubSubCallback);
+}
+
+boolean PubSubConnect() {
+  Serial.print("Connecting to MQTT server...");
+  
+  if(!pubSubClient.connect(MQTT_NAME)) {
+    Serial.println("\nCouldn't connect to MQTT server. Will try again in 5 seconds.");
+    return false;
+  }
+  
+  if(!pubSubClient.subscribe(CMD_TOPIC, QOS_LEVEL)) {
+    Serial.print("\nUnable to subscribe to ");
+    Serial.println(CMD_TOPIC);
+    pubSubClient.disconnect();
+    return false;
+  }
+
+  Serial.println(" Connected.");
+  return true;
+}
+
+void PubSubLoop() {
+  if(!pubSubClient.connected()) {
+    long now = millis();
+
+    if(now - lastPubSubConnectionAttempt > 5000) {
+      lastPubSubConnectionAttempt = now;
+      if(PubSubConnect()) {
+        lastPubSubConnectionAttempt = 0;
+      }
+    }
+  } else {
+    pubSubClient.loop();
+  }
+}
+
+void PubSubCallback(char* topic, byte* payload, unsigned int length) {
+  char *p = (char *)malloc((length + 1) * sizeof(char *));
+  strncpy(p, (char *)payload, length);
+  p[length] = '\0';
+
+  Serial.print("Message received: ");
+  Serial.print(topic);
+  Serial.print(" - ");
+  Serial.println(p);
+
+  free(p);
+}
+
+void connectWifi(const char* ssid, const char* password) {
+  int WiFiCounter = 0;
+  // We start by connecting to a WiFi network
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
+  WiFi.hostname(HOSTNAME);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED && WiFiCounter < 30) {
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    delay(1000);
+    WiFiCounter++;
+    Serial.print(".");
+  }
+
+  digitalWrite(LED_BUILTIN, 0);
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
 
 void setup(void){
   pinMode(LED_BUILTIN, OUTPUT);
@@ -65,39 +152,12 @@ void setup(void){
   digitalWrite(DOOR_OPENER_PIN, LOW);
 
   // WIFI
-  WiFi.mode(WIFI_STA);
-  WiFi.hostname(HOSTNAME);
-  WiFi.begin(ssid, password);
-  Serial.println("");
-
-  // Wait for connection
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    Serial.print(".");
-  }
-  digitalWrite(LED_BUILTIN, 0);
-
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  connectWifi(ssid, password);
+  PubSubSetup();
 
   if (MDNS.begin("esp8266")) {
     Serial.println("MDNS responder started");
   }
-
-  // WEB SERVER
-  server.on("/", handleRoot);
-  server.on("/inline", [](){
-    server.send(200, "text/plain", "this works as well");
-  });
-  server.on("/relay_on", handleRelayOn);
-  server.on("/relay_off", handleRelayOff);
-  server.onNotFound(handleNotFound);
-  server.begin();
-  Serial.println("HTTP server started");
 }
 
 void loop(void){
@@ -106,7 +166,7 @@ void loop(void){
     readSensors();
   }
 
-  server.handleClient();
+  PubSubLoop();
 }
 
 void readSensors(){
@@ -126,6 +186,17 @@ void readSensors(){
   String msg = "DoorSensorTop: ";
   msg += digitalRead(DOOR_SENSOR_TOP_PIN);
   Serial.println(msg);
+
+  if (pubSubClient.connected()){
+    String event = "{\"Humidity\":";
+    event += DHT.humidity;
+    event += ", \"Temperature\":";
+    event += DHT.temperature;
+    event += "}";
+    if (!pubSubClient.publish(SENSOR_TOPIC, event.c_str(), false)) {
+      Serial.println("Unable to publish event");
+    }
+  }
 }
 
 /******************************
@@ -166,51 +237,15 @@ void alertDoorState(void *pArg) {
   Serial.println("Porten ser ut til å være fastkjørt i halvåpen stilling!");
 }
 
-/**************************
- * WEB SERVER HANDLERS
- *************************/
-void handleRoot() {
-  digitalWrite(LED_BUILTIN, 1);
-  String msg = "hello from esp8266!";
-  msg = msg+ "\nHumidity: ";
-  msg = msg + DHT.humidity;
-  msg = msg + "% - Temp: ";
-  msg = msg + DHT.temperature;
-  msg = msg + " *C";
-  
-  server.send(200, "text/plain", msg);
-  digitalWrite(LED_BUILTIN, 0);
-}
-
-void handleNotFound(){
-  digitalWrite(LED_BUILTIN, 1);
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET)?"GET":"POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i=0; i<server.args(); i++){
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
-  digitalWrite(LED_BUILTIN, 0);
-}
-
 void handleRelayOn() {
   digitalWrite(DOOR_OPENER_PIN, HIGH);
   char* msg = "Relay turned on";
   Serial.println(msg);
-  server.send(200, "text/plain", msg);
 }
 
 void handleRelayOff() {
   digitalWrite(DOOR_OPENER_PIN, LOW);
   char* msg = "Relay turned off";
   Serial.println(msg);
-  server.send(200, "text/plain", msg);
 }
-
 
