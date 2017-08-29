@@ -16,7 +16,7 @@ extern "C" {
 #define DOOR_SENSOR_TOP_PIN D1
 #define DOOR_SENSOR_BOTTOM_PIN D4
 
-#define MQTT_IP "192.168.1.9"
+#define MQTT_IP "rpi3-1"
 #define MQTT_PORT 1883
 #define MQTT_NAME "garage"
 #define CMD_TOPIC "garage/cmd"
@@ -24,6 +24,8 @@ extern "C" {
 #define QOS_LEVEL 0
 
 unsigned long lastRead = 0;
+char* _ssid;
+char* _password;
 
 dht DHT;
 os_timer_t doorChangeTimer;
@@ -34,18 +36,33 @@ void PubSubCallback(char* topic, byte* payload, unsigned int length);
 long lastPubSubConnectionAttempt = 0;
 
 void PubSubSetup() {
-  pubSubClient.setServer(MQTT_IP, MQTT_PORT);
+  //pubSubClient.setServer(MQTT_IP, MQTT_PORT);
   pubSubClient.setCallback(PubSubCallback);
 }
 
 boolean PubSubConnect() {
   Serial.print("Connecting to MQTT server...");
+  Serial.println("Sending mDNS Query");
+  int n = MDNS.queryService("mqtt", "tcp");
+  if (n == 0) {
+    Serial.println("No MQTT server found!");
+  } else if (n > 1) {
+    Serial.println("Multiple MQTT services found - remove the unnecessary mDNS services!");
+  } else {
+    Serial.print(F("INFO: MQTT broker IP address: "));
+    Serial.print(MDNS.IP(0));
+    Serial.print(F(":"));
+    Serial.println(MDNS.port(0));
+    pubSubClient.setServer(MDNS.IP(0), int(MDNS.port(0)));
+  }
   
-  if(!pubSubClient.connect(MQTT_NAME)) {
+  if(n != 1 || !pubSubClient.connect(MQTT_NAME)) {
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     Serial.println("\nCouldn't connect to MQTT server. Will try again in 5 seconds.");
     return false;
   }
   
+  digitalWrite(LED_BUILTIN, 0);
   if(!pubSubClient.subscribe(CMD_TOPIC, QOS_LEVEL)) {
     Serial.print("\nUnable to subscribe to ");
     Serial.println(CMD_TOPIC);
@@ -60,7 +77,7 @@ boolean PubSubConnect() {
 void PubSubLoop() {
   if(!pubSubClient.connected()) {
     long now = millis();
-
+        
     if(now - lastPubSubConnectionAttempt > 5000) {
       lastPubSubConnectionAttempt = now;
       if(PubSubConnect()) {
@@ -138,6 +155,9 @@ void setup(void){
   sSsid.toCharArray(ssid, sSsid.length());
   char password[sPassword.length() + 1];
   sPassword.toCharArray(password, sPassword.length());
+
+  _ssid = ssid;
+  _password = password;
 
   // DOOR SENSORS (Default HIGH, when switch close pin is pulled LOW)
   pinMode(DOOR_SENSOR_TOP_PIN, INPUT_PULLUP);
