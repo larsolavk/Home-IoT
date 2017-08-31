@@ -1,7 +1,5 @@
 #include <dht.h>
-#include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <PubSubClient.h>
 #include "FS.h"
@@ -10,7 +8,6 @@ extern "C" {
   #include "user_interface.h"
 }
 
-#define HOSTNAME "MCU_Garage"
 #define DHT11_PIN D3
 #define DOOR_OPENER_PIN D2
 #define DOOR_SENSOR_TOP_PIN D1
@@ -24,14 +21,14 @@ extern "C" {
 #define QOS_LEVEL 0
 
 unsigned long lastRead = 0;
-char* _ssid;
-char* _password;
+char ssid[30];
+char password[30];
 
+WiFiClient wifi;
+PubSubClient pubSubClient(wifi);
 dht DHT;
 os_timer_t doorChangeTimer;
 os_timer_t doorStateAlertTimer;
-WiFiClient wifi;
-PubSubClient pubSubClient(wifi);
 void PubSubCallback(char* topic, byte* payload, unsigned int length);
 long lastPubSubConnectionAttempt = 0;
 
@@ -102,63 +99,14 @@ void PubSubCallback(char* topic, byte* payload, unsigned int length) {
   free(p);
 }
 
-void connectWifi(const char* ssid, const char* password) {
-  int WiFiCounter = 0;
-  // We start by connecting to a WiFi network
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  
-  WiFi.disconnect();
-  WiFi.mode(WIFI_STA);
-  WiFi.hostname(HOSTNAME);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED && WiFiCounter < 30) {
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    delay(1000);
-    WiFiCounter++;
-    Serial.print(".");
-  }
-
-  digitalWrite(LED_BUILTIN, 0);
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
 void setup(void){
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, 0);
   Serial.begin(115200);
 
-  // File System
-  if (!SPIFFS.begin()) {
-    Serial.println("Unable to mount SPIFFS");
-    digitalWrite(LED_BUILTIN, 1);
-    return;  
-  }
-  Serial.println("SPIFFS mounted successfully!");
-
-  // SECRETS FILE
-  File secretsFile = SPIFFS.open("/secret/secrets.dat", "r");
-  if(!secretsFile) {
-    Serial.println("Couldn't load secrets");
-    digitalWrite(LED_BUILTIN, 1);
-    return;  
-  }
-  Serial.println("Secrets loaded successfully!");
-  String sSsid = secretsFile.readStringUntil('\n').c_str();
-  String sPassword = secretsFile.readStringUntil('\n').c_str();
-  secretsFile.close();
-
-  char ssid[sSsid.length() + 1];
-  sSsid.toCharArray(ssid, sSsid.length());
-  char password[sPassword.length() + 1];
-  sPassword.toCharArray(password, sPassword.length());
-
-  _ssid = ssid;
-  _password = password;
-
+  setupSecrets();
+  getWifiSecrets(ssid, password);
+  
   // DOOR SENSORS (Default HIGH, when switch close pin is pulled LOW)
   pinMode(DOOR_SENSOR_TOP_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(DOOR_SENSOR_TOP_PIN), onDoorSensorChange, CHANGE);
