@@ -18,7 +18,7 @@ unsigned long lastRead = 0;
 char ssid[30];
 char password[30];
 
-WiFiClient wifi;
+WiFiClientSecure wifi;
 PubSubClient pubSubClient(wifi);
 dht DHT;
 os_timer_t doorChangeTimer;
@@ -46,11 +46,12 @@ void setup(void){
   // WIFI
   setupSecrets();
   getWifiSecrets(ssid, password);
+  loadCertificates();
   connectWifi(ssid, password);
   
   PubSubSetup();
 
-  if (MDNS.begin("esp8266")) {
+  if (MDNS.begin("garage")) {
     Serial.println("MDNS responder started");
   }
 }

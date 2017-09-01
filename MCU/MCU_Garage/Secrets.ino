@@ -29,3 +29,30 @@ void getWifiSecrets(char* ssid, char* password)
   sPassword.toCharArray(password, sPassword.length());
 }
 
+void loadCertificates() {
+  File ca = SPIFFS.open("/secret/garage.crt.der", "r");
+  if(!ca) {
+    Serial.println("Couldn't load cert");
+    return;  
+  }
+
+  if(wifi.loadCertificate(ca)) {
+    Serial.println("Loaded Cert");
+  } else {
+    Serial.println("Didn't load cert");
+    return;
+  }
+    
+  File key = SPIFFS.open("/secret/garage.key.der", "r");
+  if(!key) {
+    Serial.println("Couldn't load key");
+    return;  
+  }
+  
+  if(wifi.loadPrivateKey(key)) {
+    Serial.println("Loaded Key");
+  } else {
+    Serial.println("Didn't load Key");
+  }
+}
+

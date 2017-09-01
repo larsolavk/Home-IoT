@@ -24,7 +24,7 @@ boolean PubSubConnect() {
     Serial.println(MDNS.port(0));
     pubSubClient.setServer(MDNS.IP(0), int(MDNS.port(0)));
   }
-  
+
   if(n != 1 || !pubSubClient.connect(MQTT_NAME)) {
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     Serial.println("\nCouldn't connect to MQTT server. Will try again in 5 seconds.");
