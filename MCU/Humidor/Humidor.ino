@@ -22,8 +22,6 @@ long lastPubSubConnectionAttempt = 0;
 
 
 void setup(void){
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, 0);
   Serial.begin(115200);
   
   // WIFI
@@ -32,22 +30,22 @@ void setup(void){
   loadCertificates();
   connectWifi(ssid, password);
   
-  PubSubSetup();
-
   if (MDNS.begin("humidor")) {
     Serial.println("MDNS responder started");
   }
+
+  while (!pubSubClient.connected()) {
+    PubSubConnect();
+    delay(5000);
+  }
+
+  readSensors();
+
+  Serial.println("Going into deep sleep for 10 minutes");
+  ESP.deepSleep(600e6);
 }
 
 void loop(void){
-  if (millis() - lastRead >= 10000){
-    lastRead = millis();
-    readSensors();
-  }
-
-  PubSubLoop();
-
-  // TODO: DEEP SLEEP
 }
 
 void readSensors(){
@@ -71,6 +69,8 @@ void readSensors(){
     event += "}";
     if (!pubSubClient.publish(SENSOR_TOPIC, event.c_str(), false)) {
       Serial.println("Unable to publish event");
+    } else {
+      Serial.println(event);
     }
   }
 }

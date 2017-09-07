@@ -1,12 +1,5 @@
 #define QOS_LEVEL 0
 
-void PubSubCallback(char* topic, byte* payload, unsigned int length);
-
-
-void PubSubSetup() {
-  pubSubClient.setCallback(PubSubCallback);
-}
-
 boolean PubSubConnect() {
   Serial.print("Connecting to MQTT server...");
   Serial.println("Sending mDNS Query");
@@ -24,12 +17,10 @@ boolean PubSubConnect() {
   }
 
   if(n != 1 || !pubSubClient.connect(HOSTNAME)) {
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     Serial.println("\nCouldn't connect to MQTT server. Will try again in 5 seconds.");
     return false;
   }
   
-  digitalWrite(LED_BUILTIN, 0);
   Serial.println(" Connected.");
   return true;
 }

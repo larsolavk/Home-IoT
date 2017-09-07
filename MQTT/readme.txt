@@ -23,6 +23,9 @@ openssl req -out garage.local.csr.pem -key garage.local.key.pem -new
 ## Sign the certificate
 openssl x509 -req -in garage.local.csr.pem -CA ca.crt.pem -CAkey ca.key.pem -CAcreateserial -out garage.local.crt.pem -days 3650
 
+## Convert pem to der
+openssl x509 -outform der -in garage.crt.pem -out garage.crt.der
+openssl rsa -outform der -in garage.key.pem -out garage.key.der
 
 Create a service in docker swarm for mosquitto:
 -----------------------------------------------

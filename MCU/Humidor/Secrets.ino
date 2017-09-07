@@ -4,7 +4,6 @@ void setupSecrets()
 {
   if (!SPIFFS.begin()) {
     Serial.println("Unable to mount SPIFFS");
-    digitalWrite(LED_BUILTIN, 1);
     return;  
   }
   Serial.println("SPIFFS mounted successfully!");
@@ -15,7 +14,6 @@ void getWifiSecrets(char* ssid, char* password)
   File secretsFile = SPIFFS.open("/secret/secrets.dat", "r");
   if(!secretsFile) {
     Serial.println("Couldn't load secrets");
-    digitalWrite(LED_BUILTIN, 1);
     return;  
   }
   Serial.println("Secrets loaded successfully!");
