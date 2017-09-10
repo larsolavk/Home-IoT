@@ -10,6 +10,7 @@ extern "C" {
 #define HOSTNAME "humidor"
 #define DHT11_PIN D3
 #define SENSOR_TOPIC "humidor/sensors"
+ADC_MODE(ADC_VCC);
 
 unsigned long lastRead = 0;
 char ssid[30];
@@ -19,7 +20,6 @@ WiFiClientSecure wifi;
 PubSubClient pubSubClient(wifi);
 dht DHT;
 long lastPubSubConnectionAttempt = 0;
-
 
 void setup(void){
   Serial.begin(115200);
@@ -50,6 +50,7 @@ void loop(void){
 
 void readSensors(){
   Serial.println("Reading sensor...");
+  float vcc = ESP.getVcc() / 1000.0;
   int chk = DHT.read11(DHT11_PIN);
   Serial.print("chk: ");
   Serial.println(chk);
@@ -60,12 +61,17 @@ void readSensors(){
   Serial.print("Temperature: ");
   Serial.print(DHT.temperature);
   Serial.print(" *C\n");
+  Serial.print("Vcc: ");
+  Serial.print(vcc);
+  Serial.print(" V\n");
 
   if (pubSubClient.connected()){
     String event = "{\"Humidity\":";
     event += DHT.humidity;
     event += ", \"Temperature\":";
     event += DHT.temperature;
+    event += ", \"Voltage\":";
+    event += vcc;
     event += "}";
     if (!pubSubClient.publish(SENSOR_TOPIC, event.c_str(), false)) {
       Serial.println("Unable to publish event");
@@ -74,17 +80,3 @@ void readSensors(){
     }
   }
 }
-
-void PubSubCallback(char* topic, byte* payload, unsigned int length) {
-  char *p = (char *)malloc((length + 1) * sizeof(char *));
-  strncpy(p, (char *)payload, length);
-  p[length] = '\0';
-
-  Serial.print("Message received: ");
-  Serial.print(topic);
-  Serial.print(" - ");
-  Serial.println(p);
-
-  free(p);
-}
-
