@@ -7,7 +7,7 @@ extern "C" {
   #include "user_interface.h"
 }
 
-#define DHT11_PIN D3
+#define DHT22_PIN D3
 #define DOOR_OPENER_PIN D2
 #define DOOR_SENSOR_TOP_PIN D1
 #define DOOR_SENSOR_BOTTOM_PIN D4
@@ -67,7 +67,7 @@ void loop(void){
 
 void readSensors(){
   Serial.println("Reading sensor...");
-  int chk = DHT.read11(DHT11_PIN);
+  int chk = DHT.read22(DHT22_PIN);
   Serial.print("chk: ");
   Serial.println(chk);
 

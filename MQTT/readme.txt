@@ -27,6 +27,9 @@ openssl x509 -req -in garage.local.csr.pem -CA ca.crt.pem -CAkey ca.key.pem -CAc
 openssl x509 -outform der -in garage.crt.pem -out garage.crt.der
 openssl rsa -outform der -in garage.key.pem -out garage.key.der
 
+## Create PFX certificate with private key (to use in dotnet core services)
+openssl pkcs12 -export -in LarsOlav-PC.crt.pem -inkey LarsOlav-PC.key.pem -out LarsOlav-PC.crt.pfx
+
 Create a service in docker swarm for mosquitto:
 -----------------------------------------------
 docker service create \
