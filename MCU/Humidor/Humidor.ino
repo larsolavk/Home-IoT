@@ -8,7 +8,7 @@ extern "C" {
 }
 
 #define HOSTNAME "humidor"
-#define DHT11_PIN D3
+#define DHT22_PIN D3
 #define SENSOR_TOPIC "humidor/sensors"
 ADC_MODE(ADC_VCC);
 
@@ -51,7 +51,7 @@ void loop(void){
 void readSensors(){
   Serial.println("Reading sensor...");
   float vcc = ESP.getVcc() / 1000.0;
-  int chk = DHT.read11(DHT11_PIN);
+  int chk = DHT.read22(DHT22_PIN);
   Serial.print("chk: ");
   Serial.println(chk);
 
