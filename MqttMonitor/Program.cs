@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using MqttNetAdapter;
+using HomeIot.Infrastructure.Mqtt.MqttNetAdapter;
 using MQTTnet.Core;
 using MQTTnet.Core.Client;
 using MQTTnet.Core.Packets;
@@ -13,8 +13,6 @@ namespace MqttMonitor
 {
     public class Program
     {
-        private const string ServiceName = "_mqtt._tcp.local.";
-
         public static async Task Main(string[] args)
         {
             var hostInfo = await MqttBrokerResolver.ResolveMqttBroker();

@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Zeroconf;
 
-namespace MqttNetAdapter
+namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
 {
     public static class MqttBrokerResolver
     {

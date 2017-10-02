@@ -3,7 +3,7 @@ using MQTTnet.Core.Adapter;
 using MQTTnet.Core.Client;
 using MQTTnet.Core.Serializer;
 
-namespace MqttNetAdapter
+namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
 {
     public class CustomMqttClientFactory
     {

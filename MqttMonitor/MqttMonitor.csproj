@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MqttNetAdapter\MqttNetAdapter.csproj" />
+    <ProjectReference Include="..\Infrastructure.Mqtt\HomeIot.Infrastructure.Mqtt.csproj" />
   </ItemGroup>
 
 </Project>

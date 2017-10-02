@@ -1,4 +1,4 @@
-﻿namespace MqttNetAdapter
+﻿namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
 {
     public class MqttBrokerInfo
     {

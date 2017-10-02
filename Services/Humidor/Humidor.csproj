@@ -9,14 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Mqtt\Handlers\" />
     <Folder Include="Secret\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.0" />
-    <PackageReference Include="MQTTnet" Version="2.2.1" />
+    <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="1.5.0" />
     <PackageReference Include="Serilog" Version="2.5.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="2.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="3.0.1" />
@@ -27,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\MqttNetAdapter\MqttNetAdapter.csproj" />
+    <ProjectReference Include="..\..\Infrastructure.Mqtt\HomeIot.Infrastructure.Mqtt.csproj" />
   </ItemGroup>
 
 </Project>

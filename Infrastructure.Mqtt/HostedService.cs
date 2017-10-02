@@ -2,7 +2,7 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 
-namespace Humidor.Mqtt
+namespace HomeIot.Infrastructure.Mqtt
 {
     public abstract class HostedService : IHostedService
     {

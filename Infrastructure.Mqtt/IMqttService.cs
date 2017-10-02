@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace Humidor.Mqtt
+namespace HomeIot.Infrastructure.Mqtt
 {
     public interface IMqttService
     {

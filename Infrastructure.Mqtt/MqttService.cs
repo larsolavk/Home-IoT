@@ -4,23 +4,36 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using HomeIot.Infrastructure.Mqtt.MqttNetAdapter;
 using Microsoft.Extensions.Logging;
-using MqttNetAdapter;
 using MQTTnet.Core;
 using MQTTnet.Core.Client;
 using MQTTnet.Core.Packets;
 using MQTTnet.Core.Protocol;
 
-namespace Humidor.Mqtt
+namespace HomeIot.Infrastructure.Mqtt
 {
     public class MqttService : HostedService, IMqttService
     {
         private readonly ILogger<MqttService> _logger;
+        private readonly Func<Type, IEnumerable<IMqttEventHandler>> _eventHandlerFactory;
+        private readonly Func<Type, IEnumerable<IMqttMessageEnricher>> _messageEnricherFactory;
+        private readonly IMqttMessageSerializer _messageSerializer;
+        private readonly Func<string, Type> _messageTypeMap;
         private IMqttClient _client;
 
-        public MqttService(ILogger<MqttService> logger)
+        public MqttService(
+            ILogger<MqttService> logger, 
+            Func<Type, IEnumerable<IMqttEventHandler>> eventHandlerFactory,
+            IMqttMessageSerializer messageSerializer, 
+            Func<string, Type> messageTypeMap, 
+            Func<Type, IEnumerable<IMqttMessageEnricher>> messageEnricherFactory)
         {
             _logger = logger;
+            _eventHandlerFactory = eventHandlerFactory;
+            _messageSerializer = messageSerializer;
+            _messageTypeMap = messageTypeMap;
+            _messageEnricherFactory = messageEnricherFactory;
         }
 
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -74,9 +87,15 @@ namespace Humidor.Mqtt
                 }
             };
 
-            _client.ApplicationMessageReceived += (sender, eventArgs) =>
+            _client.ApplicationMessageReceived += async (sender, eventArgs) =>
             {
-                _logger.LogInformation($"{eventArgs.ApplicationMessage.Topic} {Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload)}");
+                _logger.LogDebug($"{eventArgs.ApplicationMessage.Topic} {Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload)}");
+
+                var type = _messageTypeMap(eventArgs.ApplicationMessage.Topic);
+                var message = _messageSerializer.Deserialize(Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload), type);
+
+                await InvokeEnrichers(message as IMqttEvent);
+                await InvokeHandlers(message as IMqttEvent);
             };
 
             while (!cancellationToken.IsCancellationRequested)
@@ -102,6 +121,36 @@ namespace Humidor.Mqtt
 
             return _client.PublishAsync(new MqttApplicationMessage(topic, Encoding.UTF8.GetBytes(msg),
                 MqttQualityOfServiceLevel.AtMostOnce, false));
+        }
+
+        private async Task InvokeEnrichers<T>(T message) where T: IMqttEvent
+        {
+            var enrichers = _messageEnricherFactory(message.GetType());
+
+            foreach (var enricher in enrichers)
+            {
+                await (Task) enricher.GetType().GetMethod("Enrich").Invoke(enricher, new object[] { message });
+            }
+        }
+
+        private async Task InvokeHandlers<T>(T message) where T : IMqttEvent
+        {
+            var handlers = _eventHandlerFactory(message.GetType());
+            var handlerTasks = new List<Task>();
+
+            foreach (var handler in handlers)
+            {
+                handlerTasks.Add((Task)handler.GetType().GetMethod("Handle").Invoke(handler, new object[] { message }));
+            }
+
+            try
+            {
+                await Task.WhenAll(handlerTasks);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error occured during message handling");
+            }
         }
     }
 }

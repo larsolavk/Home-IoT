@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Humidor.Mqtt;
+using HomeIot.Infrastructure.Mqtt;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Humidor.Controllers
@@ -19,7 +20,7 @@ namespace Humidor.Controllers
         [HttpGet]
         public async Task<IEnumerable<string>> Get()
         {
-            await _mqttService.Publish("humidor/cmd/blabla", "Dette er en test!");
+            await _mqttService.Publish("humidor/sensors", "{\"Humidity\":65.00, \"Temperature\":21.40, \"Voltage\":2.52}");
 
             return new string[] { "value1", "value2" };
         }

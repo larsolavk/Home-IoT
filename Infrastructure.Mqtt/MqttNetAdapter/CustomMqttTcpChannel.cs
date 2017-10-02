@@ -8,7 +8,7 @@ using MQTTnet.Core.Channel;
 using MQTTnet.Core.Client;
 using MQTTnet.Core.Exceptions;
 
-namespace MqttNetAdapter
+namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
 {
     public class CustomMqttTcpChannel : IMqttCommunicationChannel, IDisposable
     {
