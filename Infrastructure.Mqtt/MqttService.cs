@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
@@ -10,11 +11,13 @@ using MQTTnet.Core;
 using MQTTnet.Core.Client;
 using MQTTnet.Core.Packets;
 using MQTTnet.Core.Protocol;
+using Microsoft.Extensions.Options;
 
 namespace HomeIot.Infrastructure.Mqtt
 {
     public class MqttService : HostedService, IMqttService
     {
+        private readonly MqttServiceConfig _config;
         private readonly ILogger<MqttService> _logger;
         private readonly Func<Type, IEnumerable<IMqttEventHandler>> _eventHandlerFactory;
         private readonly Func<Type, IEnumerable<IMqttMessageEnricher>> _messageEnricherFactory;
@@ -23,12 +26,14 @@ namespace HomeIot.Infrastructure.Mqtt
         private IMqttClient _client;
 
         public MqttService(
+            IOptions<MqttServiceConfig> config,
             ILogger<MqttService> logger, 
             Func<Type, IEnumerable<IMqttEventHandler>> eventHandlerFactory,
             IMqttMessageSerializer messageSerializer, 
             Func<string, Type> messageTypeMap, 
             Func<Type, IEnumerable<IMqttMessageEnricher>> messageEnricherFactory)
         {
+            _config = config.Value;
             _logger = logger;
             _eventHandlerFactory = eventHandlerFactory;
             _messageSerializer = messageSerializer;
@@ -38,12 +43,21 @@ namespace HomeIot.Infrastructure.Mqtt
 
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Resolving MQTT Broker information...");
-
-            var hostInfo = await MqttBrokerResolver.ResolveMqttBroker();
+            MqttBrokerInfo hostInfo;
+            if (!string.IsNullOrWhiteSpace(_config.BrokerEndpoint))
+            {
+                hostInfo = new MqttBrokerInfo(_config.BrokerEndpoint.Split(':')[0],
+                    int.Parse(_config.BrokerEndpoint.Split(':')[1]), "BrokerEndpoint");
+            }
+            else
+            {
+                _logger.LogInformation($"Resolving MQTT Broker with DNS name: {_config.BrokerServiceDnsName}");
+                hostInfo = await MqttBrokerResolver.ResolveMqttBroker(_config.BrokerServiceDnsName);
+            }
 
             _logger.LogInformation($"Connecting to MQTT broker: {hostInfo.DisplayName} - {hostInfo.IpAddress}:{hostInfo.Port}");
 
+            var certs = new X509Certificate2Collection {new X509Certificate2(_config.ClientCertificatePath, "")};
             _client = new CustomMqttClientFactory().CreateMqttClient(new MqttClientOptions
             {
                 Server = hostInfo.IpAddress,
@@ -51,23 +65,25 @@ namespace HomeIot.Infrastructure.Mqtt
                 TlsOptions = new MqttClientTlsOptions
                 {
                     UseTls = true,
-                    Certificates = new List<byte[]>
-                    {
-                        new X509Certificate2(@"c:\source\cert\LarsOlav-PC.crt.pfx")
-                            .Export(X509ContentType.SerializedCert)
-                    },
+                    //Certificates = new List<byte[]>
+                    //{
+                    //    X509Certificate.CreateFromSignedFile(_config.ClientCertificatePath).GetRawCertData()
+                    //    //new X509Certificate(_config.ClientCertificatePath).Export(X509ContentType.Cert)
+                    //        //.Export(X509ContentType.Cert)
+                    //},
                     CheckCertificateRevocation = true
                 }
-            });
+            }, certs);
 
             _client.Connected += async (sender, eventArgs) =>
             {
                 _logger.LogInformation("### CONNECTED WITH SERVER ###");
 
-                await _client.SubscribeAsync(new List<TopicFilter>
-                {
-                    new TopicFilter("humidor/#", MqttQualityOfServiceLevel.AtMostOnce)
-                });
+                var topicFilters = _config.Topics.Select(topic =>
+                        new TopicFilter(topic, MqttQualityOfServiceLevel.AtMostOnce))
+                    .ToList();
+
+                await _client.SubscribeAsync(topicFilters);
 
                 _logger.LogInformation("### SUBSCRIBED ###");
             };

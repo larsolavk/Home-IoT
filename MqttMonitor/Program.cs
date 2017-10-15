@@ -15,7 +15,7 @@ namespace MqttMonitor
     {
         public static async Task Main(string[] args)
         {
-            var hostInfo = await MqttBrokerResolver.ResolveMqttBroker();
+            var hostInfo = await MqttBrokerResolver.ResolveMqttBroker("_mqtt._tcp.local.");
             if (hostInfo == null)
                 return;
             

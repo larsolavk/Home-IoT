@@ -7,11 +7,11 @@ namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
 {
     public static class MqttBrokerResolver
     {
-        private const string ServiceName = "_mqtt._tcp.local.";
+        //private const string ServiceName = "_mqtt._tcp.local.";
 
-        public static async Task<MqttBrokerInfo> ResolveMqttBroker()
+        public static async Task<MqttBrokerInfo> ResolveMqttBroker(string serviceDnsName)
         {
-            var mqttHosts = await ZeroconfResolver.ResolveAsync(ServiceName);
+            var mqttHosts = await ZeroconfResolver.ResolveAsync(serviceDnsName);
             var mqttHost = mqttHosts?.SingleOrDefault();
 
             if (mqttHosts == null || !mqttHosts.Any())
@@ -20,7 +20,7 @@ namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
             if (mqttHost == null)
                 throw new ArgumentOutOfRangeException(nameof(mqttHost), "Found more than one MQTT brokers via mDNS");
 
-            return new MqttBrokerInfo(mqttHost.IPAddress, mqttHost.Services[ServiceName].Port, mqttHost.DisplayName);
+            return new MqttBrokerInfo(mqttHost.IPAddress, mqttHost.Services[serviceDnsName].Port, mqttHost.DisplayName);
         }
     }
 }

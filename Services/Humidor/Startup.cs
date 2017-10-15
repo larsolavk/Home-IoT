@@ -42,6 +42,7 @@ namespace Humidor
                 return map;
             });
 
+            services.Configure<MqttServiceConfig>(Configuration.GetSection("MqttService"));
             services.Configure<DocumentDbInserterConfig>(Configuration.GetSection("DocumentDB"));
         }
 

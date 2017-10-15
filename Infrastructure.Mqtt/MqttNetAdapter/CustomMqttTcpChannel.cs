@@ -14,9 +14,11 @@ namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
     {
         private Socket _socket;
         private SslStream _sslStream;
+        private readonly X509CertificateCollection _certificateCollection;
 
-        public CustomMqttTcpChannel()
+        public CustomMqttTcpChannel(X509CertificateCollection certificateCollection)
         {
+            _certificateCollection = certificateCollection;
         }
 
         public CustomMqttTcpChannel(Socket socket, SslStream sslStream)
@@ -40,7 +42,8 @@ namespace HomeIot.Infrastructure.Mqtt.MqttNetAdapter
                 if (options.TlsOptions.UseTls)
                 {
                     _sslStream = new SslStream(new NetworkStream(_socket, true), true, (sender, certificate, chain, errors) => true);
-                    await _sslStream.AuthenticateAsClientAsync(options.Server, LoadCertificates(options), SslProtocols.Tls11, options.TlsOptions.CheckCertificateRevocation);
+                    //await _sslStream.AuthenticateAsClientAsync(options.Server, LoadCertificates(options), SslProtocols.Tls11, options.TlsOptions.CheckCertificateRevocation);
+                    await _sslStream.AuthenticateAsClientAsync(options.Server, _certificateCollection, SslProtocols.Tls11, options.TlsOptions.CheckCertificateRevocation);
                 }
             }
             catch (SocketException exception)
